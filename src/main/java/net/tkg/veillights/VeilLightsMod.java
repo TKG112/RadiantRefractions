@@ -4,6 +4,7 @@ import net.tkg.veillights.component.ModDataComponents;
 import net.tkg.veillights.item.ModCreativeModTabs;
 import net.tkg.veillights.item.ModItems;
 import net.tkg.veillights.item.custom.FlashlightItem;
+import net.tkg.veillights.item.custom.LighterItem;
 import org.slf4j.Logger;
 
 import com.mojang.logging.LogUtils;
@@ -68,6 +69,8 @@ public class VeilLightsMod {
     public static class ClientModEvents {
         @SubscribeEvent
         public static void onClientSetup(FMLClientSetupEvent event) {
+            FlashlightItem.register();
+            LighterItem.register();
         }
     }
 }
