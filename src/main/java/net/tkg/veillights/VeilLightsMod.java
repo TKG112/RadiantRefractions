@@ -1,11 +1,9 @@
 package net.tkg.veillights;
 
-import foundry.veil.api.client.render.VeilRenderSystem;
-import net.minecraft.world.item.CreativeModeTab;
-import net.minecraft.world.item.CreativeModeTabs;
 import net.tkg.veillights.component.ModDataComponents;
 import net.tkg.veillights.item.ModCreativeModTabs;
 import net.tkg.veillights.item.ModItems;
+import net.tkg.veillights.item.custom.FlashlightItem;
 import org.slf4j.Logger;
 
 import com.mojang.logging.LogUtils;
@@ -70,7 +68,6 @@ public class VeilLightsMod {
     public static class ClientModEvents {
         @SubscribeEvent
         public static void onClientSetup(FMLClientSetupEvent event) {
-            VeilRenderSystem.renderer().getLightRenderer().enableAmbientOcclusion();
         }
     }
 }
