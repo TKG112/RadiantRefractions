@@ -1,5 +1,6 @@
 package net.tkg.veillights;
 
+import foundry.veil.api.client.render.VeilRenderSystem;
 import net.minecraft.world.item.CreativeModeTab;
 import net.minecraft.world.item.CreativeModeTabs;
 import net.tkg.veillights.component.ModDataComponents;
@@ -45,8 +46,6 @@ public class VeilLightsMod {
 
         ModDataComponents.register(modEventBus);
 
-        // Register the item to a creative tab
-        modEventBus.addListener(this::addCreative);
         // Register our mod's ModConfigSpec so that FML can create and load the config file for us
         modContainer.registerConfig(ModConfig.Type.COMMON, Config.SPEC);
     }
@@ -71,7 +70,7 @@ public class VeilLightsMod {
     public static class ClientModEvents {
         @SubscribeEvent
         public static void onClientSetup(FMLClientSetupEvent event) {
-
+            VeilRenderSystem.renderer().getLightRenderer().enableAmbientOcclusion();
         }
     }
 }

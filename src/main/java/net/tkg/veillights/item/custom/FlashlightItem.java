@@ -19,7 +19,7 @@ import org.joml.Quaternionf;
 import org.joml.Vector3f;
 
 public class FlashlightItem extends Item {
-    private final AreaLight flashlight_light = new AreaLight().setColor(1f, 1f, 1f).setBrightness(1.5f).setDistance(200f); // Light instance for the item
+    private final AreaLight flashlight_light = new AreaLight().setColor(1f, 1f, 1f).setBrightness(1.5f).setDistance(200).setSize(0, 0); // Light instance for the item
     private boolean lightAdded = false; // Flag to track if the light has been added
 
     public FlashlightItem(Properties properties) {
