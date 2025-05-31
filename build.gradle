@@ -113,12 +113,12 @@ configurations {
 
 repositories {
     maven {
-        name = 'BlameJared Maven (CrT / Bookshelf)'
-        url = 'https://maven.blamejared.com'
-    }
-    maven {
         url = "https://api.modrinth.com/maven"
     }
+    maven {
+        url = 'https://maven.blamejared.com'
+    }
+
 }
 
 dependencies {
@@ -144,11 +144,20 @@ dependencies {
     // http://www.gradle.org/docs/current/userguide/artifact_dependencies_tutorial.html
     // http://www.gradle.org/docs/current/userguide/dependency_management.html
 
+    implementation("com.muksc.tacz:TACZ-1.21.1:1.1.5")
+
+    implementation("foundry.veil:veil-neoforge-${project.minecraft_version}:${project.veil_version}") {
+        exclude group: "maven.modrinth"
+        exclude group: "me.fallenbreath"
+    }
+
+    implementation("maven.modrinth:azurelib:HaS7cDII")
+
     implementation("maven.modrinth:lithium:cU1Q9UWL")
 
-    implementation("maven.modrinth:sodium:zBRij2cH")
+    implementation("maven.modrinth:sodium:Pb3OXVqC")
 
-    implementation("maven.modrinth:sodium-extra:pFmw1eci")
+    implementation("maven.modrinth:chloride:V9ra5T8b")
 
     implementation("maven.modrinth:sodium-options-api:lrsX3TMS")
 
