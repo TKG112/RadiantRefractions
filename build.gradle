@@ -151,7 +151,7 @@ dependencies {
         exclude group: "me.fallenbreath"
     }
 
-    implementation("maven.modrinth:azurelib:HaS7cDII")
+    implementation("maven.modrinth:geckolib:QEqpUJ1G")
 
     implementation("maven.modrinth:lithium:cU1Q9UWL")
 

@@ -1,10 +1,10 @@
 package net.tkg.veillights;
 
-import net.tkg.veillights.component.ModDataComponents;
-import net.tkg.veillights.item.ModCreativeModTabs;
-import net.tkg.veillights.item.ModItems;
-import net.tkg.veillights.item.custom.FlashlightItem;
-import net.tkg.veillights.item.custom.LighterItem;
+import net.tkg.veillights.server.component.ModDataComponents;
+import net.tkg.veillights.server.item.ModCreativeModTabs;
+import net.tkg.veillights.server.item.ModItems;
+import net.tkg.veillights.server.item.custom.FlashlightItem;
+import net.tkg.veillights.server.item.custom.LighterItem;
 import org.slf4j.Logger;
 
 import com.mojang.logging.LogUtils;
@@ -21,6 +21,8 @@ import net.neoforged.fml.event.lifecycle.FMLCommonSetupEvent;
 import net.neoforged.neoforge.common.NeoForge;
 import net.neoforged.neoforge.event.BuildCreativeModeTabContentsEvent;
 import net.neoforged.neoforge.event.server.ServerStartingEvent;
+import software.bernie.geckolib.GeckoLibClient;
+import software.bernie.geckolib.platform.GeckoLibNeoForge;
 
 // The value here should match an entry in the META-INF/neoforge.mods.toml file
 @Mod(VeilLightsMod.MODID)

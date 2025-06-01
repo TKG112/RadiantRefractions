@@ -1,4 +1,4 @@
-package net.tkg.veillights.item;
+package net.tkg.veillights.server.item;
 
 import net.minecraft.core.registries.Registries;
 import net.minecraft.network.chat.Component;

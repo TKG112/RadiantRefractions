@@ -1,12 +1,12 @@
-package net.tkg.veillights.item;
+package net.tkg.veillights.server.item;
 
 import net.minecraft.world.item.Item;
 import net.neoforged.bus.api.IEventBus;
 import net.neoforged.neoforge.registries.DeferredItem;
 import net.neoforged.neoforge.registries.DeferredRegister;
 import net.tkg.veillights.VeilLightsMod;
-import net.tkg.veillights.item.custom.FlashlightItem;
-import net.tkg.veillights.item.custom.LighterItem;
+import net.tkg.veillights.server.item.custom.FlashlightItem;
+import net.tkg.veillights.server.item.custom.LighterItem;
 
 public class ModItems {
     public static final DeferredRegister.Items ITEMS = DeferredRegister.createItems(VeilLightsMod.MODID);

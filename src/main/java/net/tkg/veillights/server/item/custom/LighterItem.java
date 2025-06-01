@@ -1,9 +1,8 @@
-package net.tkg.veillights.item.custom;
+package net.tkg.veillights.server.item.custom;
 
 import com.ibm.icu.impl.Pair;
 import foundry.veil.api.client.registry.LightTypeRegistry;
 import foundry.veil.api.client.render.VeilRenderSystem;
-import foundry.veil.api.client.render.light.AreaLight;
 import foundry.veil.api.client.render.light.PointLight;
 import net.minecraft.client.Minecraft;
 import net.minecraft.world.InteractionHand;
@@ -16,17 +15,15 @@ import net.minecraft.world.level.Level;
 import net.minecraft.world.phys.Vec3;
 import net.neoforged.neoforge.client.event.RenderLevelStageEvent;
 import net.neoforged.neoforge.common.NeoForge;
-import net.tkg.veillights.component.ModDataComponents;
+import net.tkg.veillights.server.component.ModDataComponents;
 import org.jetbrains.annotations.NotNull;
-import org.joml.Quaternionf;
-import org.joml.Vector3f;
 
 import java.util.HashMap;
 import java.util.Map;
 import java.util.UUID;
 
 public class LighterItem extends Item {
-    private static final Map<UUID, PointLight> activeLights = new HashMap<>(); // Map of active lights
+    private static final Map<UUID, PointLight> activeLights = new HashMap<>();
 
     public LighterItem(Properties properties) {
         super(properties);
@@ -35,11 +32,10 @@ public class LighterItem extends Item {
     @NotNull
     @Override
     public InteractionResultHolder<ItemStack> use(Level level, Player player, InteractionHand usedHand) {
-        if (!level.isClientSide) { // Ensure this runs only on the server
+        if (!level.isClientSide) {
             ItemStack stack = player.getItemInHand(usedHand);
             ensureUUID(stack);
 
-            // Toggle the "light" state
             boolean currentState = stack.getOrDefault(ModDataComponents.LIGHT, false);
             stack.set(ModDataComponents.LIGHT, !currentState);
         }
@@ -50,7 +46,7 @@ public class LighterItem extends Item {
     public void inventoryTick(ItemStack stack, Level level, Entity entity, int slotId, boolean isSelected) {
         if (!(entity instanceof Player player) || !level.isClientSide) return;
 
-        ensureUUID(stack); // Ensure the lighter has a UUID
+        ensureUUID(stack);
         UUID lighterUUID = getUUID(stack);
         boolean isLightOn = stack.getOrDefault(ModDataComponents.LIGHT, false);
         PointLight light = activeLights.get(lighterUUID);
@@ -67,7 +63,6 @@ public class LighterItem extends Item {
                 double targetY = player.getEyeY() + (viewVector.y * forwardOffset) + verticalOffset;
                 double targetZ = player.getZ() + (viewVector.z * forwardOffset);
 
-                // Create a new light instance for this lighter
                 light = new PointLight()
                         .setColor(1f, 0.5f, 0f)
                         .setBrightness(1f)
@@ -108,7 +103,7 @@ public class LighterItem extends Item {
         Player localPlayer = mc.player;
         float frameTime = (float) Minecraft.getInstance().getFrameTimeNs() / 1000000000;
 
-        // Handle LOCAL PLAYER's lights (existing logic)
+        // Handle LOCAL PLAYER lights
         activeLights.forEach((uuid, light) -> {
             ItemStack stack = findLighterInHand(localPlayer);
             if (stack == null) {
@@ -120,7 +115,6 @@ public class LighterItem extends Item {
             double forwardOffset = 0.4;
             double verticalOffset = 0.0;
 
-            // Calculate target position with smoothing
             double targetX = localPlayer.getX() + (viewVector.x * forwardOffset);
             double targetY = localPlayer.getEyeY() + (viewVector.y * forwardOffset) + verticalOffset;
             double targetZ = localPlayer.getZ() + (viewVector.z * forwardOffset);
@@ -134,18 +128,17 @@ public class LighterItem extends Item {
             light.setPosition(newX, newY, newZ);
         });
 
-        // Handle OTHER PLAYERS' lights (new multiplayer logic)
+        // Handle OTHER PLAYERS lights
         Map<Pair<UUID, InteractionHand>, PointLight> currentFrameLights = new HashMap<>();
 
         for (Player player : mc.level.players()) {
-            if (player == localPlayer) continue; // Skip local player
+            if (player == localPlayer) continue;
 
             for (InteractionHand hand : InteractionHand.values()) {
                 ItemStack stack = player.getItemInHand(hand);
                 if (stack.getItem() instanceof LighterItem && stack.getOrDefault(ModDataComponents.LIGHT, false)) {
                     Pair<UUID, InteractionHand> key = Pair.of(player.getUUID(), hand);
 
-                    // Get or create light
                     PointLight light = otherPlayerActiveLights.computeIfAbsent(key, k -> {
                         PointLight newLight = new PointLight()
                                 .setColor(1f, 0.5f, 0f)
@@ -156,8 +149,13 @@ public class LighterItem extends Item {
                         return newLight;
                     });
 
-                    // Update position directly (no smoothing for other players)
-                    Vec3 viewVector = player.getViewVector(mc.getFrameTimeNs());
+                    float partialTicks = event.getPartialTick().getGameTimeDeltaPartialTick(true);
+
+                    float xRot = player.xRotO + (player.getXRot() - player.xRotO) * partialTicks;
+                    float yRot = player.yRotO + (player.getYRot() - player.yRotO) * partialTicks;
+
+                    Vec3 viewVector = Vec3.directionFromRotation(xRot, yRot);
+
                     double forwardOffset = 0.4;
                     double verticalOffset = 0.0;
 
@@ -171,7 +169,6 @@ public class LighterItem extends Item {
             }
         }
 
-        // Cleanup other players' lights that are no longer active
         otherPlayerActiveLights.entrySet().removeIf(entry -> {
             if (!currentFrameLights.containsKey(entry.getKey())) {
                 VeilRenderSystem.renderer().getLightRenderer().removeLight(entry.getValue());
@@ -180,7 +177,6 @@ public class LighterItem extends Item {
             return false;
         });
 
-        // Existing cleanup for local player's lights
         activeLights.entrySet().removeIf(entry ->
                 !VeilRenderSystem.renderer().getLightRenderer().getLights(LightTypeRegistry.POINT.get()).contains(entry.getValue())
         );

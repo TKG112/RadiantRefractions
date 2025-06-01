@@ -1,4 +1,4 @@
-package net.tkg.veillights.component;
+package net.tkg.veillights.server.component;
 
 import com.mojang.serialization.Codec;
 import net.minecraft.core.UUIDUtil;
