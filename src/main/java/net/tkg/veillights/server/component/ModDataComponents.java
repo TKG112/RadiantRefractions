@@ -21,6 +21,9 @@ public class ModDataComponents {
     public static final DeferredHolder<DataComponentType<?>, DataComponentType<UUID>> UUID = register("uuid",
             builder -> builder.persistent(UUIDUtil.CODEC));
 
+    public static final DeferredHolder<DataComponentType<?>, DataComponentType<Boolean>> PLAY_USE_ANIM = register("play_use_anim",
+            builder -> builder.persistent(Codec.BOOL));
+
 
     private static <T>DeferredHolder<DataComponentType<?>, DataComponentType<T>> register(String name,
                                                                                           UnaryOperator<DataComponentType.Builder<T>> builderOperator) {

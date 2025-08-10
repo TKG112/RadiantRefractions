@@ -28,6 +28,7 @@ import software.bernie.geckolib.animatable.SingletonGeoAnimatable;
 import software.bernie.geckolib.animatable.client.GeoRenderProvider;
 import software.bernie.geckolib.animatable.instance.AnimatableInstanceCache;
 import software.bernie.geckolib.animation.*;
+import software.bernie.geckolib.constant.DataTickets;
 import software.bernie.geckolib.util.GeckoLibUtil;
 
 import java.util.HashMap;
@@ -36,9 +37,9 @@ import java.util.UUID;
 import java.util.function.Consumer;
 
 public class FlashlightItem extends Item implements GeoItem {
-    private static final Map<UUID, AreaLight> activeLights = new HashMap<>();
-
     private final AnimatableInstanceCache cache = GeckoLibUtil.createInstanceCache(this);
+
+    private static final Map<UUID, AreaLight> activeLights = new HashMap<>();
 
     public static ItemDisplayContext transformType;
 
@@ -51,23 +52,28 @@ public class FlashlightItem extends Item implements GeoItem {
     @NotNull
     @Override
     public InteractionResultHolder<ItemStack> use(Level level, Player player, InteractionHand usedHand) {
+        ItemStack stack = player.getItemInHand(usedHand);
+
+        if (player.getCooldowns().isOnCooldown(this)) {
+            return InteractionResultHolder.pass(stack);
+        }
+
+        player.getCooldowns().addCooldown(this, 20);
+
         if (!level.isClientSide) {
-            ItemStack stack = player.getItemInHand(usedHand);
             ensureUUID(stack);
 
             boolean currentState = stack.getOrDefault(ModDataComponents.LIGHT, false);
             stack.set(ModDataComponents.LIGHT, !currentState);
         }
-        // Trigger animation client-side
+
         if (level.isClientSide) {
-            ItemStack stack = player.getItemInHand(usedHand);
             ensureUUID(stack);
-            this.triggerAnim(player, GeoItem.getId(stack), "controller", "use");
+            stack.set(ModDataComponents.PLAY_USE_ANIM, true); // Add a custom boolean component
         }
 
         return super.use(level, player, usedHand);
     }
-
 
     @Override
     public void inventoryTick(ItemStack stack, Level level, Entity entity, int slotId, boolean isSelected) {
@@ -109,7 +115,7 @@ public class FlashlightItem extends Item implements GeoItem {
     }
 
     private UUID getUUID(ItemStack stack) {
-        return stack.get(ModDataComponents.UUID); // Don't return a random UUID
+        return stack.get(ModDataComponents.UUID);
     }
 
     public static void register() {
@@ -225,27 +231,47 @@ public class FlashlightItem extends Item implements GeoItem {
         return null;
     }
 
-
     private static boolean isHoldingInEitherHand(Player player, ItemStack stack) {
         return player.getItemInHand(InteractionHand.MAIN_HAND) == stack || player.getItemInHand(InteractionHand.OFF_HAND) == stack;
     }
 
     @Override
+    public boolean isPerspectiveAware() {
+        return true;
+    }
+
+    @Override
     public void registerControllers(AnimatableManager.ControllerRegistrar controllers) {
-        controllers.add(new AnimationController<>(this, "controller", 5, this::predicate)
+        controllers.add(new AnimationController<>(this, "controller", 0, this::predicate)
                 .triggerableAnim("use", RawAnimation.begin().thenPlay("use")));
     }
 
+    private static final RawAnimation IDLE = RawAnimation.begin().thenLoop("idle");
+
+    private static final RawAnimation USE = RawAnimation.begin().thenPlay("use");
 
     private <T extends GeoAnimatable> PlayState predicate(AnimationState<T> state) {
-        RawAnimation use = RawAnimation.begin().thenPlay("use");
+        AnimationController<?> controller = state.getController();
+        ItemDisplayContext context = state.getData(DataTickets.ITEM_RENDER_PERSPECTIVE);
+        ItemStack stack = state.getData(DataTickets.ITEMSTACK);
 
-        if (state.isCurrentAnimation(use)) {
+        if (context != ItemDisplayContext.FIRST_PERSON_LEFT_HAND && context != ItemDisplayContext.FIRST_PERSON_RIGHT_HAND) {
+            return PlayState.STOP;
+        }
+
+        if (stack != null && stack.getOrDefault(ModDataComponents.PLAY_USE_ANIM, false)) {
+            controller.setAnimation(USE);
+            stack.set(ModDataComponents.PLAY_USE_ANIM, false); // reset trigger
             return PlayState.CONTINUE;
         }
-        state.setAnimation(RawAnimation.begin().thenLoop("idle"));
+
+        if (controller.getCurrentAnimation() == null || controller.hasAnimationFinished()) {
+            controller.setAnimation(IDLE);
+        }
+
         return PlayState.CONTINUE;
     }
+
 
     @Override
     public boolean shouldCauseReequipAnimation(ItemStack oldStack, ItemStack newStack, boolean slotChanged) {

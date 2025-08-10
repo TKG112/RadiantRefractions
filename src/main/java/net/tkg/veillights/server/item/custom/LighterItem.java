@@ -5,25 +5,42 @@ import foundry.veil.api.client.registry.LightTypeRegistry;
 import foundry.veil.api.client.render.VeilRenderSystem;
 import foundry.veil.api.client.render.light.PointLight;
 import net.minecraft.client.Minecraft;
+import net.minecraft.client.renderer.BlockEntityWithoutLevelRenderer;
 import net.minecraft.world.InteractionHand;
 import net.minecraft.world.InteractionResultHolder;
 import net.minecraft.world.entity.Entity;
 import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.item.Item;
+import net.minecraft.world.item.ItemDisplayContext;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.level.Level;
 import net.minecraft.world.phys.Vec3;
 import net.neoforged.neoforge.client.event.RenderLevelStageEvent;
 import net.neoforged.neoforge.common.NeoForge;
+import net.tkg.veillights.client.renderer.LighterItemRenderer;
 import net.tkg.veillights.server.component.ModDataComponents;
 import org.jetbrains.annotations.NotNull;
+import software.bernie.geckolib.animatable.GeoAnimatable;
+import software.bernie.geckolib.animatable.GeoItem;
+import software.bernie.geckolib.animatable.client.GeoRenderProvider;
+import software.bernie.geckolib.animatable.instance.AnimatableInstanceCache;
+import software.bernie.geckolib.animation.*;
+import software.bernie.geckolib.constant.DataTickets;
+import software.bernie.geckolib.util.GeckoLibUtil;
 
 import java.util.HashMap;
 import java.util.Map;
 import java.util.UUID;
+import java.util.function.Consumer;
 
-public class LighterItem extends Item {
+public class LighterItem extends Item implements GeoItem {
+    private final AnimatableInstanceCache cache = GeckoLibUtil.createInstanceCache(this);
+
     private static final Map<UUID, PointLight> activeLights = new HashMap<>();
+
+    public static ItemDisplayContext transformType;
+
+
 
     public LighterItem(Properties properties) {
         super(properties);
@@ -32,13 +49,26 @@ public class LighterItem extends Item {
     @NotNull
     @Override
     public InteractionResultHolder<ItemStack> use(Level level, Player player, InteractionHand usedHand) {
+        ItemStack stack = player.getItemInHand(usedHand);
+
+        if (player.getCooldowns().isOnCooldown(this)) {
+            return InteractionResultHolder.pass(stack);
+        }
+
+        player.getCooldowns().addCooldown(this, 20);
+
         if (!level.isClientSide) {
-            ItemStack stack = player.getItemInHand(usedHand);
             ensureUUID(stack);
 
             boolean currentState = stack.getOrDefault(ModDataComponents.LIGHT, false);
             stack.set(ModDataComponents.LIGHT, !currentState);
         }
+
+        if (level.isClientSide) {
+            ensureUUID(stack);
+            stack.set(ModDataComponents.PLAY_USE_ANIM, true);
+        }
+
         return super.use(level, player, usedHand);
     }
 
@@ -194,5 +224,67 @@ public class LighterItem extends Item {
 
     private static boolean isHoldingInEitherHand(Player player, ItemStack stack) {
         return player.getItemInHand(InteractionHand.MAIN_HAND) == stack || player.getItemInHand(InteractionHand.OFF_HAND) == stack;
+    }
+
+    @Override
+    public boolean isPerspectiveAware() {
+        return true;
+    }
+
+    @Override
+    public void registerControllers(AnimatableManager.ControllerRegistrar controllers) {
+        controllers.add(new AnimationController<>(this, "controller", 0, this::predicate)
+                .triggerableAnim("use", RawAnimation.begin())); // optional, can be removed
+    }
+
+    private static final RawAnimation ANIM_OPEN = RawAnimation.begin().thenPlay("use_open").thenLoop("idle_open");
+    private static final RawAnimation ANIM_CLOSE = RawAnimation.begin().thenPlay("use_close").thenLoop("idle_close");
+
+    private <T extends GeoAnimatable> PlayState predicate(AnimationState<T> state) {
+        ItemStack stack = state.getData(DataTickets.ITEMSTACK);
+        ItemDisplayContext context = state.getData(DataTickets.ITEM_RENDER_PERSPECTIVE);
+
+        if (context != ItemDisplayContext.FIRST_PERSON_LEFT_HAND && context != ItemDisplayContext.FIRST_PERSON_RIGHT_HAND) {
+            return PlayState.STOP;
+        }
+
+        boolean isLightOn = stack.getOrDefault(ModDataComponents.LIGHT, false);
+
+
+        if (isLightOn && !state.isCurrentAnimation(ANIM_OPEN)) {
+            state.setAnimation(ANIM_OPEN);
+        } else if (!isLightOn && !state.isCurrentAnimation(ANIM_CLOSE)) {
+            state.setAnimation(ANIM_CLOSE);
+        }
+
+        return PlayState.CONTINUE;
+    }
+
+    @Override
+    public boolean shouldCauseReequipAnimation(ItemStack oldStack, ItemStack newStack, boolean slotChanged) {
+        return false;
+    }
+
+    @Override
+    public AnimatableInstanceCache getAnimatableInstanceCache() {
+        return this.cache;
+    }
+
+    @Override
+    public void createGeoRenderer(Consumer<GeoRenderProvider> consumer) {
+        consumer.accept(new GeoRenderProvider() {
+            private LighterItemRenderer renderer;
+
+            @Override
+            public BlockEntityWithoutLevelRenderer getGeoItemRenderer() {
+                if (this.renderer == null)
+                    this.renderer = new LighterItemRenderer();
+                return this.renderer;
+            }
+        });
+    }
+
+    public void getTransformType(ItemDisplayContext type) {
+        this.transformType = type;
     }
 }

@@ -12,8 +12,9 @@ import net.minecraft.client.renderer.texture.OverlayTexture;
 import net.minecraft.resources.ResourceLocation;
 import net.minecraft.world.item.ItemDisplayContext;
 import net.minecraft.world.item.ItemStack;
-import net.tkg.veillights.client.model.FlashlightItemModel;
-import net.tkg.veillights.server.item.custom.FlashlightItem;
+import net.tkg.veillights.VeilLightsMod;
+import net.tkg.veillights.client.model.LighterItemModel;
+import net.tkg.veillights.server.item.custom.LighterItem;
 import net.tkg.veillights.server.util.AnimUtils;
 import org.jetbrains.annotations.Nullable;
 import software.bernie.geckolib.cache.object.BakedGeoModel;
@@ -24,23 +25,25 @@ import software.bernie.geckolib.util.RenderUtil;
 import java.util.HashSet;
 import java.util.Set;
 
-public class FlashlightItemRenderer extends GeoItemRenderer<FlashlightItem> {
-    public FlashlightItemRenderer() {
-        super(new FlashlightItemModel());
+public class LighterItemRenderer extends GeoItemRenderer<LighterItem> {
+    public LighterItemRenderer() {
+        super(new LighterItemModel());
     }
 
+    private static final ResourceLocation LIGHTER_TEXTURE = ResourceLocation.fromNamespaceAndPath(VeilLightsMod.MODID, "textures/item/lighter.png");
+
     @Override
-    public RenderType getRenderType(FlashlightItem animatable, ResourceLocation texture, MultiBufferSource bufferSource, float partialTick) {
+    public RenderType getRenderType(LighterItem animatable, ResourceLocation texture, MultiBufferSource bufferSource, float partialTick) {
         return RenderType.entityTranslucent(getTextureLocation(animatable));
     }
 
     protected MultiBufferSource currentBuffer;
     protected RenderType renderType;
     public ItemDisplayContext transformType;
-    protected FlashlightItem animatable;
+    protected LighterItem animatable;
     private final Set<String> hiddenBones = new HashSet<>();
 
-    private static final FlashlightThirdPersonRenderer thirdPersonRenderer = new FlashlightThirdPersonRenderer();
+    private static final LighterThirdPersonRenderer thirdPersonRenderer = new LighterThirdPersonRenderer();
 
     @Override
     public void renderByItem(ItemStack stack, ItemDisplayContext transformType, PoseStack poseStack,
@@ -60,7 +63,7 @@ public class FlashlightItemRenderer extends GeoItemRenderer<FlashlightItem> {
 
 
     @Override
-    public void actuallyRender(PoseStack poseStack, FlashlightItem animatable, BakedGeoModel model, @Nullable RenderType renderType, MultiBufferSource bufferSource, @Nullable VertexConsumer buffer, boolean isReRender, float partialTick, int packedLight, int packedOverlay, int colour) {
+    public void actuallyRender(PoseStack poseStack, LighterItem animatable, BakedGeoModel model, @Nullable RenderType renderType, MultiBufferSource bufferSource, @Nullable VertexConsumer buffer, boolean isReRender, float partialTick, int packedLight, int packedOverlay, int colour) {
         this.currentBuffer = bufferSource;
         this.renderType = renderType;
         this.animatable = animatable;
@@ -69,7 +72,7 @@ public class FlashlightItemRenderer extends GeoItemRenderer<FlashlightItem> {
 
 
     @Override
-    public void renderRecursively(PoseStack poseStack, FlashlightItem animatable, GeoBone bone, RenderType renderType, MultiBufferSource bufferSource, VertexConsumer buffer, boolean isReRender, float partialTick, int packedLight, int packedOverlay, int colour) {
+    public void renderRecursively(PoseStack poseStack, LighterItem animatable, GeoBone bone, RenderType renderType, MultiBufferSource bufferSource, VertexConsumer buffer, boolean isReRender, float partialTick, int packedLight, int packedOverlay, int colour) {
         Minecraft mc = Minecraft.getInstance();
         String name = bone.getName();
         boolean renderingArms = false;
@@ -111,7 +114,12 @@ public class FlashlightItemRenderer extends GeoItemRenderer<FlashlightItem> {
     }
 
     @Override
-    public ResourceLocation getTextureLocation(FlashlightItem instance) {
-        return super.getTextureLocation(instance);
+    public ResourceLocation getTextureLocation(LighterItem animatable) {
+        return LIGHTER_TEXTURE;
+    }
+
+    public void getTransformType(ItemDisplayContext type) {
+        this.transformType = type;
     }
 }
+
