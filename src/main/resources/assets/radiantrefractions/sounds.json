@@ -1,0 +1,14 @@
+{
+  "lighter_open": {
+    "subtitle" : "sounds.radiantrefractions.lighter_open",
+    "sounds": [ "radiantrefractions:lighter_open" ]
+  },
+  "lighter_close": {
+    "subtitle" : "sounds.radiantrefractions.lighter_close",
+    "sounds": [ "radiantrefractions:lighter_close" ]
+  },
+  "flashlight_click": {
+    "subtitle" : "sounds.radiantrefractions.flashlight_click",
+    "sounds": [ "radiantrefractions:flashlight_click" ]
+  }
+}

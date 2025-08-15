@@ -1,0 +1,23 @@
+{
+  "type": "minecraft:crafting_shaped",
+  "pattern": [
+    "iRi",
+    "iSi",
+    " i "
+  ],
+  "key": {
+    "i": {
+      "item": "minecraft:iron_ingot"
+    },
+    "R": {
+      "item": "minecraft:redstone_lamp"
+    },
+    "S": {
+      "item": "minecraft:stone_button"
+    }
+  },
+  "result": {
+    "item": "radiantrefractions:flashlight",
+    "count": 1
+  }
+}

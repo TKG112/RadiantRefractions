@@ -1,0 +1,15 @@
+{
+  "item.radiantrefractions.flashlight": "Flashlight",
+  "item.radiantrefractions.lighter": "Lighter",
+  "item.radiantrefractions.battery": "Battery",
+
+  "sounds.radiantrefractions.lighter_open": "Lighter Opens",
+  "sounds.radiantrefractions.lighter_close": "Lighter Closes",
+  "sounds.radiantrefractions.flashlight_click": "Flashlight Clicks",
+
+  "tooltip.item.on" : "Light: ON",
+  "tooltip.item.off" : "Light: OFF",
+  "tooltip.item.energy" : "Energy: %s/%s",
+
+  "creativetab.radiantrefractions.items": "Radiant Refractions"
+}
