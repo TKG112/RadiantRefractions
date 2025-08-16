@@ -49,30 +49,19 @@ public class LighterItem extends Item implements GeoItem {
     public InteractionResultHolder<ItemStack> use(Level level, Player player, InteractionHand usedHand) {
         ItemStack stack = player.getItemInHand(usedHand);
 
-        // Cooldown check
         if (player.getCooldowns().isOnCooldown(this)) {
             return InteractionResultHolder.pass(stack);
         }
 
         player.getCooldowns().addCooldown(this, 25);
 
-        // Get the current light state BEFORE toggling
         boolean currentState = stack.getOrDefault(DataComponentsRegistryRR.LIGHT, false);
 
         if (!level.isClientSide) {
             ensureUUID(stack);
             stack.set(DataComponentsRegistryRR.LIGHT, !currentState);
 
-            // Choose sound based on the PREVIOUS state
-            level.playSeededSound(
-                    null, // null means all nearby players hear it
-                    player.getX(), player.getY(), player.getZ(),
-                    currentState ? SoundRegistryRR.LIGHTER_CLOSE : SoundRegistryRR.LIGHTER_OPEN,
-                    SoundSource.PLAYERS,
-                    1.0f,
-                    1.0f,
-                    0
-            );
+            level.playSeededSound(null, player.getX(), player.getY(), player.getZ(), currentState ? SoundRegistryRR.LIGHTER_CLOSE : SoundRegistryRR.LIGHTER_OPEN, SoundSource.PLAYERS, 1.0f, 1.0f, 0);
         }
 
         if (level.isClientSide) {
@@ -87,8 +76,7 @@ public class LighterItem extends Item implements GeoItem {
     public void appendHoverText(ItemStack stack, TooltipContext context, List<Component> tooltipComponents, TooltipFlag tooltipFlag) {
 
         boolean isLightOn = stack.getOrDefault(DataComponentsRegistryRR.LIGHT, false);
-        tooltipComponents.add(Component.translatable(isLightOn ? "tooltip.item.on" : "tooltip.item.off")
-                .withStyle(isLightOn ? ChatFormatting.GREEN : ChatFormatting.RED));
+        tooltipComponents.add(Component.translatable(isLightOn ? "tooltip.item.on" : "tooltip.item.off").withStyle(isLightOn ? ChatFormatting.GREEN : ChatFormatting.RED));
 
         super.appendHoverText(stack, context, tooltipComponents, tooltipFlag);
     }
@@ -218,7 +206,7 @@ public class LighterItem extends Item implements GeoItem {
     @Override
     public void registerControllers(AnimatableManager.ControllerRegistrar controllers) {
         controllers.add(new AnimationController<>(this, "controller", 0, this::predicate)
-                .triggerableAnim("use", RawAnimation.begin())); // optional, can be removed
+                .triggerableAnim("use", RawAnimation.begin()));
     }
 
     private static final RawAnimation ANIM_OPEN = RawAnimation.begin().thenPlay("use_open").thenLoop("idle_open");

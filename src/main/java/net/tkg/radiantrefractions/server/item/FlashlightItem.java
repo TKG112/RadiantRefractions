@@ -108,7 +108,7 @@ public class FlashlightItem extends Item implements GeoItem {
         }
 
         flashlight.set(DataComponents.BUNDLE_CONTENTS, mutable.toImmutable());
-        access.set(other); // update cursor stack count
+        access.set(other);
         return true;
     }
 
@@ -388,7 +388,7 @@ public class FlashlightItem extends Item implements GeoItem {
 
         if (stack != null && stack.getOrDefault(DataComponentsRegistryRR.PLAY_USE_ANIM, false)) {
             controller.setAnimation(USE);
-            stack.set(DataComponentsRegistryRR.PLAY_USE_ANIM, false); // reset trigger
+            stack.set(DataComponentsRegistryRR.PLAY_USE_ANIM, false);
             return PlayState.CONTINUE;
         }
 
