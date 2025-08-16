@@ -1,9 +1,8 @@
 package net.tkg.radiantrefractions.server.item;
 
 import com.ibm.icu.impl.Pair;
-import foundry.veil.api.client.registry.LightTypeRegistry;
-import foundry.veil.api.client.render.VeilRenderSystem;
-import foundry.veil.api.client.render.light.AreaLight;
+import foundry.veil.api.client.render.light.data.AreaLightData;
+import foundry.veil.api.client.render.light.renderer.LightRenderHandle;
 import net.minecraft.ChatFormatting;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.renderer.BlockEntityWithoutLevelRenderer;
@@ -25,11 +24,11 @@ import net.minecraft.world.level.Level;
 import net.minecraft.world.phys.Vec3;
 import net.neoforged.neoforge.client.event.RenderLevelStageEvent;
 import net.neoforged.neoforge.common.NeoForge;
+import net.tkg.radiantrefractions.client.lights.FlashlightLights;
 import net.tkg.radiantrefractions.client.renderer.FlashlightItemRenderer;
 import net.tkg.radiantrefractions.server.registry.ConfigRegistryRR;
 import net.tkg.radiantrefractions.server.registry.DataComponentsRegistryRR;
 import net.tkg.radiantrefractions.server.registry.SoundRegistryRR;
-import org.joml.Quaternionf;
 import org.joml.Vector3f;
 import software.bernie.geckolib.animatable.GeoAnimatable;
 import software.bernie.geckolib.animatable.GeoItem;
@@ -46,8 +45,6 @@ import java.util.function.Consumer;
 public class FlashlightItem extends Item implements GeoItem {
     private final AnimatableInstanceCache cache = GeckoLibUtil.createInstanceCache(this);
     public static ItemDisplayContext transformType;
-
-    private static final Map<UUID, AreaLight> activeLights = new HashMap<>();
 
     public FlashlightItem(Properties properties) {
         super(properties.component(DataComponents.BUNDLE_CONTENTS, BundleContents.EMPTY));
@@ -79,12 +76,31 @@ public class FlashlightItem extends Item implements GeoItem {
     @Override
     public boolean overrideOtherStackedOnMe(ItemStack flashlight, ItemStack other, Slot slot, ClickAction action, Player player, SlotAccess access) {
         if (action != ClickAction.SECONDARY) return false;
+
+        BundleContents contents = getContents(flashlight);
+
+        if (other.isEmpty()) {
+            if (contents.isEmpty()) return false;
+
+            BundleContents.Mutable mutable = new BundleContents.Mutable(contents);
+            ItemStack removed = mutable.removeOne();
+            if (removed == null || removed.isEmpty()) return false;
+
+            access.set(removed);
+            flashlight.set(DataComponents.BUNDLE_CONTENTS, mutable.toImmutable());
+
+            if (flashlight.getOrDefault(DataComponentsRegistryRR.LIGHT, false)) {
+                flashlight.set(DataComponentsRegistryRR.LIGHT, false);
+            }
+            return true;
+        }
+
         if (!isBattery(other)) return false;
-        if (hasBattery(flashlight)) return false;
+        if (!contents.isEmpty()) return false;
 
         ItemStack one = other.split(1);
 
-        BundleContents.Mutable mutable = new BundleContents.Mutable(getContents(flashlight));
+        BundleContents.Mutable mutable = new BundleContents.Mutable(contents);
         int added = mutable.tryInsert(one);
         if (added <= 0) {
             other.grow(1);
@@ -92,10 +108,10 @@ public class FlashlightItem extends Item implements GeoItem {
         }
 
         flashlight.set(DataComponents.BUNDLE_CONTENTS, mutable.toImmutable());
-        access.set(other);
-
+        access.set(other); // update cursor stack count
         return true;
     }
+
 
     @Override
     public boolean overrideStackedOnOther(ItemStack flashlight, Slot slot, ClickAction action, Player player) {
@@ -103,16 +119,14 @@ public class FlashlightItem extends Item implements GeoItem {
 
         if (!hasBattery(flashlight)) {
             ItemStack inSlot = slot.getItem();
-            BundleContents bundlecontents = flashlight.get(DataComponents.BUNDLE_CONTENTS);
-            BundleContents.Mutable bundlecontents$mutable = new BundleContents.Mutable(bundlecontents);
+            BundleContents.Mutable mutable = new BundleContents.Mutable(getContents(flashlight));
             if (inSlot.isEmpty()) {
-                bundlecontents$mutable.removeOne();
+                mutable.removeOne();
             }
             if (!inSlot.isEmpty() && isBattery(inSlot)) {
                 ItemStack taken = slot.safeTake(1, 1, player);
                 if (taken.isEmpty()) return false;
 
-                BundleContents.Mutable mutable = new BundleContents.Mutable(getContents(flashlight));
                 int added = mutable.tryInsert(taken);
                 if (added == 1) {
                     flashlight.set(DataComponents.BUNDLE_CONTENTS, mutable.toImmutable());
@@ -182,7 +196,7 @@ public class FlashlightItem extends Item implements GeoItem {
 
     @Override
     public Optional<TooltipComponent> getTooltipImage(ItemStack stack) {
-        return !stack.has(DataComponents.HIDE_TOOLTIP) && !stack.has(DataComponents.HIDE_ADDITIONAL_TOOLTIP) ? Optional.ofNullable((BundleContents)stack.get(DataComponents.BUNDLE_CONTENTS)).map(BundleTooltip::new) : Optional.empty();
+        return !stack.has(DataComponents.HIDE_TOOLTIP) && !stack.has(DataComponents.HIDE_ADDITIONAL_TOOLTIP) ? Optional.ofNullable(stack.get(DataComponents.BUNDLE_CONTENTS)).map(BundleTooltip::new) : Optional.empty();
     }
 
     @Override
@@ -192,6 +206,9 @@ public class FlashlightItem extends Item implements GeoItem {
 
         super.appendHoverText(stack, context, tooltipComponents, tooltipFlag);
     }
+
+    private static final Map<UUID, FlashlightLights> activeLights = new HashMap<>();
+    private static final Map<Pair<UUID, InteractionHand>, FlashlightLights> otherPlayerActiveLights = new HashMap<>();
 
     @Override
     public void inventoryTick(ItemStack stack, Level level, Entity entity, int slotId, boolean isSelected) {
@@ -222,31 +239,103 @@ public class FlashlightItem extends Item implements GeoItem {
             ensureUUID(stack);
             UUID flashlightUUID = getUUID(stack);
             boolean isLightOn = stack.getOrDefault(DataComponentsRegistryRR.LIGHT, false);
-            AreaLight light = activeLights.get(flashlightUUID);
+            FlashlightLights light = activeLights.get(flashlightUUID);
 
             if ((isSelected || isHoldingInEitherHand(player, stack)) && isLightOn) {
                 if (light == null) {
-                    float partialTick = Minecraft.getInstance().getFrameTimeNs();
-                    Vec3 viewVector = player.getViewVector(partialTick);
-                    Vector3f direction = new Vector3f((float) -viewVector.x(), (float) -viewVector.y(), (float) -viewVector.z());
-                    Quaternionf viewRotation = new Quaternionf().lookAlong(direction, new Vector3f(0, 1, 0));
-                    light = new AreaLight()
-                            .setColor(1f, 1f, 1f)
-                            .setBrightness(1.5f).setDistance(200)
-                            .setSize(0, 0)
-                            .setPosition(entity.getX(), entity.getEyeY(), entity.getZ())
-                            .setOrientation(viewRotation);
-
+                    light = new FlashlightLights();
                     activeLights.put(flashlightUUID, light);
-                    VeilRenderSystem.renderer().getLightRenderer().addLight(light);
                 }
             } else {
                 if (light != null) {
-                    VeilRenderSystem.renderer().getLightRenderer().removeLight(light);
+                    light.remove();
                     activeLights.remove(flashlightUUID);
                 }
             }
         }
+    }
+
+    public static void register() {
+        NeoForge.EVENT_BUS.addListener(FlashlightItem::onRenderTick);
+    }
+
+    private static void onRenderTick(RenderLevelStageEvent event) {
+        Minecraft mc = Minecraft.getInstance();
+        if (mc.player == null || mc.level == null) return;
+
+        Player localPlayer = mc.player;
+        float partialTicks = event.getPartialTick().getGameTimeDeltaPartialTick(true);
+
+        // Local player
+        activeLights.forEach((uuid, light) -> {
+            ItemStack stack = findFlashlightInHand(localPlayer);
+            if (stack == null) {
+                light.remove();
+                return;
+            }
+
+            Vec3 viewVector = localPlayer.getViewVector(partialTicks);
+            double forwardOffset = 0.4;
+            Vector3f targetPos = new Vector3f(
+                    (float) (localPlayer.getX() + (viewVector.x * forwardOffset)),
+                    (float) (localPlayer.getEyeY() + (viewVector.y * forwardOffset)),
+                    (float) (localPlayer.getZ() + (viewVector.z * forwardOffset))
+            );
+
+            float smoothing = 0.025f;
+            LightRenderHandle<AreaLightData> handle = light.getHandle();
+            AreaLightData areaLightData = handle.getLightData();
+            double currentPosX = areaLightData.getPosition().x;
+            double currentPosY = areaLightData.getPosition().y;
+            double currentPosZ = areaLightData.getPosition().z;
+            Vector3f smoothedPos = new Vector3f(
+                    (float) (currentPosX + (targetPos.x - currentPosX) * smoothing),
+                    (float) (currentPosY + (targetPos.y - currentPosY) * smoothing),
+                    (float) (currentPosZ + (targetPos.z - currentPosZ) * smoothing)
+            );
+
+            light.update(smoothedPos, localPlayer.getXRot(), localPlayer.getYRot());
+        });
+
+        // Other players
+        Map<Pair<UUID, InteractionHand>, FlashlightLights> currentFrameLights = new HashMap<>();
+
+        for (Player player : mc.level.players()) {
+            if (player == localPlayer) continue;
+
+            for (InteractionHand hand : InteractionHand.values()) {
+                ItemStack stack = player.getItemInHand(hand);
+                if (stack.getItem() instanceof FlashlightItem &&
+                        stack.getOrDefault(DataComponentsRegistryRR.LIGHT, false)) {
+
+                    Pair<UUID, InteractionHand> key = Pair.of(player.getUUID(), hand);
+
+                    FlashlightLights light = otherPlayerActiveLights.computeIfAbsent(key, k -> new FlashlightLights());
+
+                    float xRot = player.getViewXRot(partialTicks);
+                    float yRot = player.getViewYRot(partialTicks);
+                    Vec3 viewVector = Vec3.directionFromRotation(xRot, yRot);
+
+                    double forwardOffset = 0.4;
+                    Vector3f pos = new Vector3f(
+                            (float) (player.getX() + (viewVector.x * forwardOffset)),
+                            (float) (player.getEyeY() + (viewVector.y * forwardOffset)),
+                            (float) (player.getZ() + (viewVector.z * forwardOffset))
+                    );
+
+                    light.update(pos, xRot, yRot);
+                    currentFrameLights.put(key, light);
+                }
+            }
+        }
+
+        otherPlayerActiveLights.entrySet().removeIf(entry -> {
+            if (!currentFrameLights.containsKey(entry.getKey())) {
+                entry.getValue().remove();
+                return true;
+            }
+            return false;
+        });
     }
 
     private void ensureUUID(ItemStack stack) {
@@ -257,108 +346,6 @@ public class FlashlightItem extends Item implements GeoItem {
 
     private UUID getUUID(ItemStack stack) {
         return stack.get(DataComponentsRegistryRR.UUID);
-    }
-
-    public static void register() {
-        NeoForge.EVENT_BUS.addListener(FlashlightItem::onRenderTick);
-    }
-
-    private static final Map<Pair<UUID, InteractionHand>, AreaLight> otherPlayerActiveLights = new HashMap<>();
-
-    private static void onRenderTick(RenderLevelStageEvent event) {
-        Minecraft mc = Minecraft.getInstance();
-        if (mc.player == null || mc.level == null) return;
-
-        Player localPlayer = mc.player;
-        float frameTime = (float) Minecraft.getInstance().getFrameTimeNs() / 1000000000;
-
-        activeLights.forEach((uuid, light) -> {
-            ItemStack stack = findFlashlightInHand(localPlayer);
-            if (stack == null) {
-                VeilRenderSystem.renderer().getLightRenderer().removeLight(light);
-                return;
-            }
-
-            Vec3 viewVector = localPlayer.getViewVector(frameTime);
-            double forwardOffset = 0.4;
-            double verticalOffset = 0.0;
-
-            double targetX = localPlayer.getX() + (viewVector.x * forwardOffset);
-            double targetY = localPlayer.getEyeY() + (viewVector.y * forwardOffset) + verticalOffset;
-            double targetZ = localPlayer.getZ() + (viewVector.z * forwardOffset);
-
-            Vec3 currentPos = new Vec3(light.getPosition().x(), light.getPosition().y(), light.getPosition().z());
-            double smoothFactor = 2.25;
-            double newX = currentPos.x() + (targetX - currentPos.x()) * smoothFactor * frameTime;
-            double newY = currentPos.y() + (targetY - currentPos.y()) * smoothFactor * frameTime;
-            double newZ = currentPos.z() + (targetZ - currentPos.z()) * smoothFactor * frameTime;
-
-            light.setPosition(newX, newY, newZ);
-
-            Vector3f direction = new Vector3f((float) -viewVector.x(), (float) -viewVector.y(), (float) -viewVector.z());
-            Quaternionf viewRotation = new Quaternionf().lookAlong(direction, new Vector3f(0, 1, 0));
-            light.setOrientation(viewRotation);
-        });
-
-        // Handle other players lights
-        Map<Pair<UUID, InteractionHand>, AreaLight> currentFrameLights = new HashMap<>();
-
-        for (Player player : mc.level.players()) {
-            if (player == localPlayer) continue;
-
-            for (InteractionHand hand : InteractionHand.values()) {
-                ItemStack stack = player.getItemInHand(hand);
-                if (stack.getItem() instanceof FlashlightItem && stack.getOrDefault(DataComponentsRegistryRR.LIGHT, false)) {
-                    Pair<UUID, InteractionHand> key = Pair.of(player.getUUID(), hand);
-
-                    float partialTicks = event.getPartialTick().getGameTimeDeltaPartialTick(true);
-                    float xRot = player.xRotO + (player.getXRot() - player.xRotO) * partialTicks;
-                    float yRot = player.yRotO + (player.getYRot() - player.yRotO) * partialTicks;
-
-                    Vec3 viewVector = Vec3.directionFromRotation(xRot, yRot);
-
-                    Vector3f direction = new Vector3f((float) -viewVector.x(), (float) -viewVector.y(), (float) -viewVector.z());
-                    Quaternionf viewRotation = new Quaternionf().lookAlong(direction, new Vector3f(0, 1, 0));
-
-                    AreaLight light = otherPlayerActiveLights.computeIfAbsent(key, k -> {
-                        AreaLight newLight = new AreaLight()
-                                .setColor(1f, 1f, 1f)
-                                .setBrightness(1.5f)
-                                .setDistance(200)
-                                .setSize(0, 0)
-                                .setPosition(player.getX(), player.getEyeY(), player.getZ())
-                                .setOrientation(viewRotation);
-                        VeilRenderSystem.renderer().getLightRenderer().addLight(newLight);
-                        return newLight;
-                    });
-
-                    double forwardOffset = 0.4;
-                    double verticalOffset = 0.0;
-
-                    double targetX = player.getX() + (viewVector.x * forwardOffset);
-                    double targetY = player.getEyeY() + (viewVector.y * forwardOffset) + verticalOffset;
-                    double targetZ = player.getZ() + (viewVector.z * forwardOffset);
-
-                    light.setPosition(targetX, targetY, targetZ);
-
-                    light.setOrientation(viewRotation);
-
-                    currentFrameLights.put(key, light);
-                }
-            }
-        }
-
-        otherPlayerActiveLights.entrySet().removeIf(entry -> {
-            if (!currentFrameLights.containsKey(entry.getKey())) {
-                VeilRenderSystem.renderer().getLightRenderer().removeLight(entry.getValue());
-                return true;
-            }
-            return false;
-        });
-
-        activeLights.entrySet().removeIf(entry ->
-                !VeilRenderSystem.renderer().getLightRenderer().getLights(LightTypeRegistry.AREA.get()).contains(entry.getValue())
-        );
     }
 
     private static ItemStack findFlashlightInHand(Player player) {

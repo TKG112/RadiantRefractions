@@ -1,11 +1,7 @@
 package net.tkg.radiantrefractions.server.item;
 
 import com.ibm.icu.impl.Pair;
-import foundry.veil.api.client.registry.LightTypeRegistry;
-import foundry.veil.api.client.render.VeilRenderSystem;
-import foundry.veil.api.client.render.light.PointLight;
 import net.minecraft.ChatFormatting;
-import net.minecraft.client.Minecraft;
 import net.minecraft.client.renderer.BlockEntityWithoutLevelRenderer;
 import net.minecraft.network.chat.Component;
 import net.minecraft.sounds.SoundSource;
@@ -21,10 +17,12 @@ import net.minecraft.world.level.Level;
 import net.minecraft.world.phys.Vec3;
 import net.neoforged.neoforge.client.event.RenderLevelStageEvent;
 import net.neoforged.neoforge.common.NeoForge;
+import net.tkg.radiantrefractions.client.lights.LighterLights;
 import net.tkg.radiantrefractions.client.renderer.LighterItemRenderer;
 import net.tkg.radiantrefractions.server.registry.DataComponentsRegistryRR;
 import net.tkg.radiantrefractions.server.registry.SoundRegistryRR;
 import org.jetbrains.annotations.NotNull;
+import org.joml.Vector3f;
 import software.bernie.geckolib.animatable.GeoAnimatable;
 import software.bernie.geckolib.animatable.GeoItem;
 import software.bernie.geckolib.animatable.client.GeoRenderProvider;
@@ -42,15 +40,12 @@ import java.util.function.Consumer;
 public class LighterItem extends Item implements GeoItem {
     private final AnimatableInstanceCache cache = GeckoLibUtil.createInstanceCache(this);
 
-    private static final Map<UUID, PointLight> activeLights = new HashMap<>();
-
     public static ItemDisplayContext transformType;
 
     public LighterItem(Properties properties) {
         super(properties);
     }
 
-    @NotNull
     @Override
     public InteractionResultHolder<ItemStack> use(Level level, Player player, InteractionHand usedHand) {
         ItemStack stack = player.getItemInHand(usedHand);
@@ -99,6 +94,13 @@ public class LighterItem extends Item implements GeoItem {
         super.appendHoverText(stack, context, tooltipComponents, tooltipFlag);
     }
 
+    public static void register() {
+        NeoForge.EVENT_BUS.addListener(LighterItem::onRenderTick);
+    }
+
+    private static final Map<Pair<UUID, InteractionHand>, LighterLights> otherPlayerActiveLights = new HashMap<>();
+    private static final Map<UUID, LighterLights> activeLights = new HashMap<>();
+
     @Override
     public void inventoryTick(ItemStack stack, Level level, Entity entity, int slotId, boolean isSelected) {
         if (!(entity instanceof Player player) || !level.isClientSide) return;
@@ -106,35 +108,83 @@ public class LighterItem extends Item implements GeoItem {
         ensureUUID(stack);
         UUID lighterUUID = getUUID(stack);
         boolean isLightOn = stack.getOrDefault(DataComponentsRegistryRR.LIGHT, false);
-        PointLight light = activeLights.get(lighterUUID);
-
-
+        LighterLights light = activeLights.get(lighterUUID);
 
         if ((isSelected || isHoldingInEitherHand(player, stack)) && isLightOn) {
             if (light == null) {
-                float frameTime = (float) Minecraft.getInstance().getFrameTimeNs();
-                Vec3 viewVector = player.getViewVector(frameTime);
-                double forwardOffset = 0.4;
-                double verticalOffset = 0.0;
-                double targetX = player.getX() + (viewVector.x * forwardOffset);
-                double targetY = player.getEyeY() + (viewVector.y * forwardOffset) + verticalOffset;
-                double targetZ = player.getZ() + (viewVector.z * forwardOffset);
-
-                light = new PointLight()
-                        .setColor(1f, 0.5f, 0f)
-                        .setBrightness(1f)
-                        .setRadius(20f)
-                        .setPosition(targetX, targetY, targetZ);
-
+                light = new LighterLights();
                 activeLights.put(lighterUUID, light);
-                VeilRenderSystem.renderer().getLightRenderer().addLight(light);
             }
-        } else {
-            if (light != null) {
-                VeilRenderSystem.renderer().getLightRenderer().removeLight(light);
-                activeLights.remove(lighterUUID);
+        } else if (light != null) {
+            light.remove();
+            activeLights.remove(lighterUUID);
+        }
+    }
+
+    private static void onRenderTick(RenderLevelStageEvent event) {
+        var mc = net.minecraft.client.Minecraft.getInstance();
+        if (mc.player == null || mc.level == null) return;
+
+        Player localPlayer = mc.player;
+        float partial = event.getPartialTick().getGameTimeDeltaPartialTick(true);
+        float frameTime = event.getPartialTick().getGameTimeDeltaPartialTick(true);
+
+        // Local player
+        activeLights.forEach((uuid, light) -> {
+            ItemStack stack = findLighterInHand(localPlayer);
+            if (stack == null) {
+                light.remove();
+                return;
+            }
+
+            Vec3 view = localPlayer.getViewVector(frameTime);
+            double ox = 0.4;
+            Vector3f pos = new Vector3f(
+                    (float) (localPlayer.getX() + view.x * ox),
+                    (float) (localPlayer.getEyeY() + view.y * ox),
+                    (float) (localPlayer.getZ() + view.z * ox)
+            );
+            light.update(pos);
+        });
+
+        // Other players
+        Map<Pair<UUID, InteractionHand>, LighterLights> currentFrame = new HashMap<>();
+
+        for (Player p : mc.level.players()) {
+            if (p == localPlayer) continue;
+
+            for (InteractionHand hand : InteractionHand.values()) {
+                ItemStack stack = p.getItemInHand(hand);
+                if (stack.getItem() instanceof LighterItem &&
+                        stack.getOrDefault(DataComponentsRegistryRR.LIGHT, false)) {
+
+                    var key = com.ibm.icu.impl.Pair.of(p.getUUID(), hand);
+                    var light = otherPlayerActiveLights.computeIfAbsent(key, k -> new LighterLights());
+
+                    float xRot = p.getViewXRot(partial);
+                    float yRot = p.getViewYRot(partial);
+                    net.minecraft.world.phys.Vec3 view = net.minecraft.world.phys.Vec3.directionFromRotation(xRot, yRot);
+
+                    double ox = 0.4;
+                    org.joml.Vector3f pos = new org.joml.Vector3f(
+                            (float) (p.getX() + view.x * ox),
+                            (float) (p.getEyeY() + view.y * ox),
+                            (float) (p.getZ() + view.z * ox)
+                    );
+
+                    light.update(pos);
+                    currentFrame.put(key, light);
+                }
             }
         }
+
+        otherPlayerActiveLights.entrySet().removeIf(e -> {
+            if (!currentFrame.containsKey(e.getKey())) {
+                e.getValue().remove();
+                return true;
+            }
+            return false;
+        });
     }
 
     private void ensureUUID(ItemStack stack) {
@@ -145,98 +195,6 @@ public class LighterItem extends Item implements GeoItem {
 
     private UUID getUUID(ItemStack stack) {
         return stack.getOrDefault(DataComponentsRegistryRR.UUID, UUID.randomUUID());
-    }
-
-    public static void register() {
-        NeoForge.EVENT_BUS.addListener(LighterItem::onRenderTick);
-    }
-
-    private static final Map<Pair<UUID, InteractionHand>, PointLight> otherPlayerActiveLights = new HashMap<>();
-
-    private static void onRenderTick(RenderLevelStageEvent event) {
-        Minecraft mc = Minecraft.getInstance();
-        if (mc.player == null || mc.level == null) return;
-
-        Player localPlayer = mc.player;
-        float frameTime = (float) Minecraft.getInstance().getFrameTimeNs() / 1000000000;
-
-        // Handle LOCAL PLAYER lights
-        activeLights.forEach((uuid, light) -> {
-            ItemStack stack = findLighterInHand(localPlayer);
-            if (stack == null) {
-                VeilRenderSystem.renderer().getLightRenderer().removeLight(light);
-                return;
-            }
-
-            Vec3 viewVector = localPlayer.getViewVector(frameTime);
-            double forwardOffset = 0.4;
-            double verticalOffset = 0.0;
-
-            double targetX = localPlayer.getX() + (viewVector.x * forwardOffset);
-            double targetY = localPlayer.getEyeY() + (viewVector.y * forwardOffset) + verticalOffset;
-            double targetZ = localPlayer.getZ() + (viewVector.z * forwardOffset);
-
-            Vec3 currentPos = new Vec3(light.getPosition().x(), light.getPosition().y(), light.getPosition().z());
-            double smoothFactor = 2.25;
-            double newX = currentPos.x() + (targetX - currentPos.x()) * smoothFactor * frameTime;
-            double newY = currentPos.y() + (targetY - currentPos.y()) * smoothFactor * frameTime;
-            double newZ = currentPos.z() + (targetZ - currentPos.z()) * smoothFactor * frameTime;
-
-            light.setPosition(newX, newY, newZ);
-        });
-
-        // Handle OTHER PLAYERS lights
-        Map<Pair<UUID, InteractionHand>, PointLight> currentFrameLights = new HashMap<>();
-
-        for (Player player : mc.level.players()) {
-            if (player == localPlayer) continue;
-
-            for (InteractionHand hand : InteractionHand.values()) {
-                ItemStack stack = player.getItemInHand(hand);
-                if (stack.getItem() instanceof LighterItem && stack.getOrDefault(DataComponentsRegistryRR.LIGHT, false)) {
-                    Pair<UUID, InteractionHand> key = Pair.of(player.getUUID(), hand);
-
-                    PointLight light = otherPlayerActiveLights.computeIfAbsent(key, k -> {
-                        PointLight newLight = new PointLight()
-                                .setColor(1f, 0.5f, 0f)
-                                .setBrightness(1f)
-                                .setRadius(20)
-                                .setPosition(player.getX(), player.getEyeY(), player.getZ());
-                        VeilRenderSystem.renderer().getLightRenderer().addLight(newLight);
-                        return newLight;
-                    });
-
-                    float partialTicks = event.getPartialTick().getGameTimeDeltaPartialTick(true);
-
-                    float xRot = player.xRotO + (player.getXRot() - player.xRotO) * partialTicks;
-                    float yRot = player.yRotO + (player.getYRot() - player.yRotO) * partialTicks;
-
-                    Vec3 viewVector = Vec3.directionFromRotation(xRot, yRot);
-
-                    double forwardOffset = 0.4;
-                    double verticalOffset = 0.0;
-
-                    double targetX = player.getX() + (viewVector.x * forwardOffset);
-                    double targetY = player.getEyeY() + (viewVector.y * forwardOffset) + verticalOffset;
-                    double targetZ = player.getZ() + (viewVector.z * forwardOffset);
-
-                    light.setPosition(targetX, targetY, targetZ);
-                    currentFrameLights.put(key, light);
-                }
-            }
-        }
-
-        otherPlayerActiveLights.entrySet().removeIf(entry -> {
-            if (!currentFrameLights.containsKey(entry.getKey())) {
-                VeilRenderSystem.renderer().getLightRenderer().removeLight(entry.getValue());
-                return true;
-            }
-            return false;
-        });
-
-        activeLights.entrySet().removeIf(entry ->
-                !VeilRenderSystem.renderer().getLightRenderer().getLights(LightTypeRegistry.POINT.get()).contains(entry.getValue())
-        );
     }
 
     private static ItemStack findLighterInHand(Player player) {
