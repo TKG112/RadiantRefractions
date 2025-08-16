@@ -21,7 +21,6 @@ import net.tkg.radiantrefractions.client.lights.LighterLights;
 import net.tkg.radiantrefractions.client.renderer.LighterItemRenderer;
 import net.tkg.radiantrefractions.server.registry.DataComponentsRegistryRR;
 import net.tkg.radiantrefractions.server.registry.SoundRegistryRR;
-import org.jetbrains.annotations.NotNull;
 import org.joml.Vector3f;
 import software.bernie.geckolib.animatable.GeoAnimatable;
 import software.bernie.geckolib.animatable.GeoItem;
