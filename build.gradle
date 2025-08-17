@@ -151,11 +151,11 @@ dependencies {
 
     implementation("maven.modrinth:geckolib:QEqpUJ1G")
 
-    implementation("maven.modrinth:lithium:cU1Q9UWL")
-
     implementation("maven.modrinth:sodium:Pb3OXVqC")
 
-    implementation("maven.modrinth:chloride:V9ra5T8b")
+    implementation("maven.modrinth:lithium:xYxpXTIt")
+
+    implementation("maven.modrinth:chloride:nPvLHMwb")
 
     implementation("maven.modrinth:sodium-options-api:lrsX3TMS")
 

@@ -43,8 +43,7 @@ public class FlashlightItemRenderer extends GeoItemRenderer<FlashlightItem> {
     private static final FlashlightThirdPersonRenderer thirdPersonRenderer = new FlashlightThirdPersonRenderer();
 
     @Override
-    public void renderByItem(ItemStack stack, ItemDisplayContext transformType, PoseStack poseStack,
-                             MultiBufferSource bufferSource, int packedLight, int packedOverlay) {
+    public void renderByItem(ItemStack stack, ItemDisplayContext transformType, PoseStack poseStack, MultiBufferSource bufferSource, int packedLight, int packedOverlay) {
         this.transformType = transformType;
 
         // Mirror model if in first-person left hand
@@ -66,9 +65,6 @@ public class FlashlightItemRenderer extends GeoItemRenderer<FlashlightItem> {
         }
     }
 
-
-
-
     @Override
     public void actuallyRender(PoseStack poseStack, FlashlightItem animatable, BakedGeoModel model, @Nullable RenderType renderType, MultiBufferSource bufferSource, @Nullable VertexConsumer buffer, boolean isReRender, float partialTick, int packedLight, int packedOverlay, int colour) {
         this.currentBuffer = bufferSource;
@@ -77,47 +73,64 @@ public class FlashlightItemRenderer extends GeoItemRenderer<FlashlightItem> {
         super.actuallyRender(poseStack, animatable, model, renderType, bufferSource, buffer, isReRender, partialTick, packedLight, packedOverlay, colour);
     }
 
-
     @Override
-    public void renderRecursively(PoseStack poseStack, FlashlightItem animatable, GeoBone bone, RenderType renderType, MultiBufferSource bufferSource, VertexConsumer buffer, boolean isReRender, float partialTick, int packedLight, int packedOverlay, int colour) {
+    public void renderRecursively(PoseStack poseStack,
+                                  FlashlightItem animatable,
+                                  GeoBone bone,
+                                  RenderType renderType,
+                                  MultiBufferSource bufferSource,
+                                  VertexConsumer buffer,
+                                  boolean isReRender,
+                                  float partialTick,
+                                  int packedLight,
+                                  int packedOverlay,
+                                  int colour) {
         Minecraft mc = Minecraft.getInstance();
         String name = bone.getName();
         boolean renderingArms = false;
+
         if (name.equals("lefthand_pos") || name.equals("righthand_pos")) {
             bone.setHidden(true);
             renderingArms = true;
         } else {
             bone.setHidden(this.hiddenBones.contains(name));
         }
+
         if (renderingArms) {
             AbstractClientPlayer player = mc.player;
             float armsAlpha = player.isInvisible() ? 0.15f : 1.0f;
             PlayerRenderer playerRenderer = (PlayerRenderer) mc.getEntityRenderDispatcher().getRenderer(player);
             PlayerModel<AbstractClientPlayer> model = playerRenderer.getModel();
+
             poseStack.pushPose();
             RenderUtil.translateMatrixToBone(poseStack, bone);
             RenderUtil.translateToPivotPoint(poseStack, bone);
             RenderUtil.rotateMatrixAroundBone(poseStack, bone);
             RenderUtil.scaleMatrixForBone(poseStack, bone);
             RenderUtil.translateAwayFromPivotPoint(poseStack, bone);
+
             ResourceLocation loc = player.getSkin().texture();
             VertexConsumer armBuilder = this.currentBuffer.getBuffer(RenderType.entitySolid(loc));
             VertexConsumer sleeveBuilder = this.currentBuffer.getBuffer(RenderType.entityTranslucent(loc));
 
             if (name.equals("lefthand_pos")) {
-                poseStack.translate(0, 0, 0);
-                AnimUtils.renderPartOverBone(model.leftArm, bone, poseStack, armBuilder, packedLight, OverlayTexture.NO_OVERLAY, armsAlpha);
-                AnimUtils.renderPartOverBone(model.leftSleeve, bone, poseStack, sleeveBuilder, packedLight, OverlayTexture.NO_OVERLAY, armsAlpha);
+                AnimUtils.renderPartOverBone(model.leftArm, bone, poseStack,
+                        armBuilder, packedLight, OverlayTexture.NO_OVERLAY, armsAlpha);
+                AnimUtils.renderPartOverBone(model.leftSleeve, bone, poseStack,
+                        sleeveBuilder, packedLight, OverlayTexture.NO_OVERLAY, armsAlpha);
             } else if (name.equals("righthand_pos")) {
-                poseStack.translate(0, 0, 0);
-                AnimUtils.renderPartOverBone(model.rightArm, bone, poseStack, armBuilder, packedLight, OverlayTexture.NO_OVERLAY, armsAlpha);
-                AnimUtils.renderPartOverBone(model.rightSleeve, bone, poseStack, sleeveBuilder, packedLight, OverlayTexture.NO_OVERLAY, armsAlpha);
+                AnimUtils.renderPartOverBone(model.rightArm, bone, poseStack,
+                        armBuilder, packedLight, OverlayTexture.NO_OVERLAY, armsAlpha);
+                AnimUtils.renderPartOverBone(model.rightSleeve, bone, poseStack,
+                        sleeveBuilder, packedLight, OverlayTexture.NO_OVERLAY, armsAlpha);
             }
 
             this.currentBuffer.getBuffer(RenderType.entityTranslucent(getTextureLocation(this.animatable)));
             poseStack.popPose();
         }
-        super.renderRecursively(poseStack, animatable, bone, renderType, bufferSource, buffer, isReRender, partialTick, packedLight, packedOverlay, colour);
+
+        super.renderRecursively(poseStack, animatable, bone, renderType, bufferSource,
+                buffer, isReRender, partialTick, packedLight, packedOverlay, colour);
     }
 
     @Override

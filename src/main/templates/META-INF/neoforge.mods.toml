@@ -95,7 +95,14 @@ description='''${mod_description}'''
 [[dependencies.${mod_id}]]
 modId="geckolib"
 type="required"
-version="4.7.5.1,"
+version="4.7.6,"
+ordering="NONE"
+side="BOTH"
+
+[[dependencies.${mod_id}]]
+modId="sodium"
+type="required"
+version="0.6.13,"
 ordering="NONE"
 side="BOTH"
 
