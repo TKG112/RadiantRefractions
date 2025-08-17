@@ -46,11 +46,8 @@ public class FlashlightItemRenderer extends GeoItemRenderer<FlashlightItem> {
     public void renderByItem(ItemStack stack, ItemDisplayContext transformType, PoseStack poseStack, MultiBufferSource bufferSource, int packedLight, int packedOverlay) {
         this.transformType = transformType;
 
-        // Mirror model if in first-person left hand
         if (transformType == ItemDisplayContext.FIRST_PERSON_LEFT_HAND) {
-            // Flip X axis
             poseStack.scale(-1.0F, 1.0F, 1.0F);
-            // Shift it back after mirroring so it stays in place
             poseStack.translate(-1.0F, 0.0F, 0.0F);
         }
 
@@ -74,17 +71,7 @@ public class FlashlightItemRenderer extends GeoItemRenderer<FlashlightItem> {
     }
 
     @Override
-    public void renderRecursively(PoseStack poseStack,
-                                  FlashlightItem animatable,
-                                  GeoBone bone,
-                                  RenderType renderType,
-                                  MultiBufferSource bufferSource,
-                                  VertexConsumer buffer,
-                                  boolean isReRender,
-                                  float partialTick,
-                                  int packedLight,
-                                  int packedOverlay,
-                                  int colour) {
+    public void renderRecursively(PoseStack poseStack, FlashlightItem animatable, GeoBone bone, RenderType renderType, MultiBufferSource bufferSource, VertexConsumer buffer, boolean isReRender, float partialTick, int packedLight, int packedOverlay, int colour) {
         Minecraft mc = Minecraft.getInstance();
         String name = bone.getName();
         boolean renderingArms = false;
@@ -109,32 +96,26 @@ public class FlashlightItemRenderer extends GeoItemRenderer<FlashlightItem> {
             RenderUtil.scaleMatrixForBone(poseStack, bone);
             RenderUtil.translateAwayFromPivotPoint(poseStack, bone);
 
-            ResourceLocation loc = player.getSkin().texture();
-            VertexConsumer armBuilder = this.currentBuffer.getBuffer(RenderType.entitySolid(loc));
-            VertexConsumer sleeveBuilder = this.currentBuffer.getBuffer(RenderType.entityTranslucent(loc));
+            ResourceLocation skin = player.getSkin().texture();
+            VertexConsumer translucentBuffer = bufferSource.getBuffer(RenderType.entityTranslucent(skin));
 
             if (name.equals("lefthand_pos")) {
-                AnimUtils.renderPartOverBone(model.leftArm, bone, poseStack,
-                        armBuilder, packedLight, OverlayTexture.NO_OVERLAY, armsAlpha);
-                AnimUtils.renderPartOverBone(model.leftSleeve, bone, poseStack,
-                        sleeveBuilder, packedLight, OverlayTexture.NO_OVERLAY, armsAlpha);
+                AnimUtils.renderPartOverBone(model.leftArm, bone, poseStack, translucentBuffer, packedLight, OverlayTexture.NO_OVERLAY, armsAlpha);
+                AnimUtils.renderPartOverBone(model.leftSleeve, bone, poseStack, translucentBuffer, packedLight, OverlayTexture.NO_OVERLAY, armsAlpha);
             } else if (name.equals("righthand_pos")) {
-                AnimUtils.renderPartOverBone(model.rightArm, bone, poseStack,
-                        armBuilder, packedLight, OverlayTexture.NO_OVERLAY, armsAlpha);
-                AnimUtils.renderPartOverBone(model.rightSleeve, bone, poseStack,
-                        sleeveBuilder, packedLight, OverlayTexture.NO_OVERLAY, armsAlpha);
+                AnimUtils.renderPartOverBone(model.rightArm, bone, poseStack, translucentBuffer, packedLight, OverlayTexture.NO_OVERLAY, armsAlpha);
+                AnimUtils.renderPartOverBone(model.rightSleeve, bone, poseStack, translucentBuffer, packedLight, OverlayTexture.NO_OVERLAY, armsAlpha);
             }
 
             this.currentBuffer.getBuffer(RenderType.entityTranslucent(getTextureLocation(this.animatable)));
             poseStack.popPose();
         }
 
-        super.renderRecursively(poseStack, animatable, bone, renderType, bufferSource,
-                buffer, isReRender, partialTick, packedLight, packedOverlay, colour);
+        super.renderRecursively(poseStack, animatable, bone, renderType, bufferSource, buffer, isReRender, partialTick, packedLight, packedOverlay, colour);
     }
 
     @Override
-    public ResourceLocation getTextureLocation(FlashlightItem instance) {
-        return super.getTextureLocation(instance);
+    public ResourceLocation getTextureLocation(FlashlightItem animatable) {
+        return super.getTextureLocation(animatable);
     }
 }
