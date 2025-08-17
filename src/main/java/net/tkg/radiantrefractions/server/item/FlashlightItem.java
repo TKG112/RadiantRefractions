@@ -243,7 +243,7 @@ public class FlashlightItem extends Item implements GeoItem {
 
             if ((isSelected || isHoldingInEitherHand(player, stack)) && isLightOn) {
                 if (light == null) {
-                    light = new FlashlightLights();
+                    light = new FlashlightLights(player.getPosition(1));
                     activeLights.put(flashlightUUID, light);
                 }
             } else {
@@ -310,7 +310,7 @@ public class FlashlightItem extends Item implements GeoItem {
 
                     Pair<UUID, InteractionHand> key = Pair.of(player.getUUID(), hand);
 
-                    FlashlightLights light = otherPlayerActiveLights.computeIfAbsent(key, k -> new FlashlightLights());
+                    FlashlightLights light = otherPlayerActiveLights.computeIfAbsent(key, k -> new FlashlightLights(localPlayer.getPosition(partialTicks)));
 
                     float xRot = player.getViewXRot(partialTicks);
                     float yRot = player.getViewYRot(partialTicks);

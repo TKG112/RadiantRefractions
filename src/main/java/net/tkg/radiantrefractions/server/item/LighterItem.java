@@ -99,7 +99,7 @@ public class LighterItem extends Item implements GeoItem {
 
         if ((isSelected || isHoldingInEitherHand(player, stack)) && isLightOn) {
             if (light == null) {
-                light = new LighterLights();
+                light = new LighterLights(player.getPosition(1));
                 activeLights.put(lighterUUID, light);
             }
         } else if (light != null) {
@@ -114,7 +114,6 @@ public class LighterItem extends Item implements GeoItem {
 
         Player localPlayer = mc.player;
         float partial = event.getPartialTick().getGameTimeDeltaPartialTick(true);
-        float frameTime = event.getPartialTick().getGameTimeDeltaPartialTick(true);
 
         // Local player
         activeLights.forEach((uuid, light) -> {
@@ -124,7 +123,7 @@ public class LighterItem extends Item implements GeoItem {
                 return;
             }
 
-            Vec3 view = localPlayer.getViewVector(frameTime);
+            Vec3 view = localPlayer.getViewVector(partial);
             double ox = 0.4;
             Vector3f pos = new Vector3f(
                     (float) (localPlayer.getX() + view.x * ox),
@@ -146,7 +145,7 @@ public class LighterItem extends Item implements GeoItem {
                         stack.getOrDefault(DataComponentsRegistryRR.LIGHT, false)) {
 
                     var key = com.ibm.icu.impl.Pair.of(p.getUUID(), hand);
-                    var light = otherPlayerActiveLights.computeIfAbsent(key, k -> new LighterLights());
+                    var light = otherPlayerActiveLights.computeIfAbsent(key, k -> new LighterLights(localPlayer.getPosition(partial)));
 
                     float xRot = p.getViewXRot(partial);
                     float yRot = p.getViewYRot(partial);
