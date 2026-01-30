@@ -5,6 +5,7 @@ import foundry.veil.api.client.render.light.data.AreaLightData;
 import foundry.veil.api.client.render.light.renderer.LightRenderHandle;
 import foundry.veil.api.client.render.light.renderer.LightRenderer;
 import net.minecraft.world.phys.Vec3;
+import net.tkg.radiantrefractions.server.registry.ConfigRegistryRR;
 import org.joml.Quaternionf;
 import org.joml.Vector3f;
 
@@ -16,8 +17,9 @@ public final class FlashlightLights {
         this.handle = lightRenderer.addLight(new AreaLightData());
         AreaLightData light = handle.getLightData();
         light.setBrightness(1.5f);
-        light.setDistance(200.0f);
+        light.setDistance((float) ConfigRegistryRR.flashlight_light_distance);
         light.setSize(0, 0);
+        light.setAngle((float) Math.toRadians(ConfigRegistryRR.flashlight_light_angle));
         light.getPosition().set(pos.x, pos.y, pos.z);
     }
 
